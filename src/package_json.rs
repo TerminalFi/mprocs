@@ -54,6 +54,7 @@ pub fn load_npm_procs(settings: &Settings) -> Result<Vec<ProcConfig>> {
     mouse_scroll_speed: settings.mouse_scroll_speed,
     scrollback_len: settings.scrollback_len,
     log_dir: None,
+    on_quit: None,
   });
   Ok(procs.collect())
 }

@@ -190,10 +190,6 @@ impl App {
       }
 
       if self.state.quitting && self.state.all_procs_down() {
-        // Execute on_quit hook before exiting
-        if let Some(event) = self.config.on_quit.clone() {
-          self.handle_event(&mut loop_action, &event);
-        }
         break;
       }
 
@@ -762,6 +758,7 @@ impl App {
           mouse_scroll_speed: self.config.mouse_scroll_speed,
           scrollback_len: self.config.scrollback_len,
           log_dir: self.config.log_dir.clone(),
+          on_quit: None,
         };
         let proc_handle = launch_proc(
           &pc,
@@ -905,6 +902,61 @@ impl App {
     }
   }
 
+  fn handle_on_quit_event(
+    &mut self,
+    loop_action: &mut LoopAction,
+    event: &AppEvent,
+    proc_cwd: Option<std::ffi::OsString>,
+  ) {
+    let pc = self.pc.clone();
+    match event {
+      AppEvent::Batch { cmds } => {
+        for cmd in cmds {
+          self.handle_on_quit_event(loop_action, cmd, proc_cwd.clone());
+          if *loop_action == LoopAction::ForceQuit {
+            return;
+          }
+        }
+      }
+      AppEvent::AddProc { cmd, name } => {
+        let name = match name {
+          Some(s) => s,
+          None => cmd,
+        };
+        let proc_config = ProcConfig {
+          name: name.clone(),
+          cmd: CmdConfig::Shell {
+            shell: cmd.to_string(),
+          },
+          cwd: proc_cwd,
+          env: None,
+          autostart: true,
+          autorestart: false,
+          stop: StopSignal::default(),
+          deps: Vec::new(),
+          mouse_scroll_speed: self.config.mouse_scroll_speed,
+          scrollback_len: self.config.scrollback_len,
+          log_dir: self.config.log_dir.clone(),
+          on_quit: None,
+        };
+        let proc_handle = launch_proc(
+          &pc,
+          proc_config,
+          self.pc.alloc_id(),
+          Vec::new(),
+          self.get_layout().term_area(),
+        );
+        self.state.procs.push(proc_handle);
+
+        loop_action.render();
+      }
+      // For other events, just handle them normally
+      _ => {
+        self.handle_event(loop_action, event);
+      }
+    }
+  }
+
   fn handle_proc_command(
     &mut self,
     loop_action: &mut LoopAction,
@@ -964,7 +1016,8 @@ impl App {
           }
         }
         ProcUpdate::Stopped(exit_code) => {
-          if let Some(proc) = self.state.get_proc_mut(proc_id) {
+          let quitting = self.state.quitting;
+          let (restart, on_quit_event, proc_cwd) = if let Some(proc) = self.state.get_proc_mut(proc_id) {
             proc.is_up = false;
             proc.exit_code = Some(exit_code);
 
@@ -986,12 +1039,7 @@ impl App {
                 false
               }
             };
-            if restart {
-              self
-                .pc
-                .send(KernelCommand::ProcCmd(proc_id, ProcCmd::Start));
-            }
-
+            
             match proc.target_state {
               TargetState::None => (),
               TargetState::Started => (),
@@ -1000,16 +1048,39 @@ impl App {
               }
             }
 
-            if !restart {
-              if self.state.all_procs_down() {
-                if let Some(event) = self.config.on_all_finished.clone() {
-                  self.handle_event(loop_action, &event);
-                }
+            // Extract values for on_quit hook
+            let on_quit_event = if quitting && !restart {
+              proc.cfg.on_quit.clone()
+            } else {
+              None
+            };
+            let proc_cwd = proc.cfg.cwd.clone();
+            
+            (restart, on_quit_event, proc_cwd)
+          } else {
+            (false, None, None)
+          };
+          
+          if restart {
+            self
+              .pc
+              .send(KernelCommand::ProcCmd(proc_id, ProcCmd::Start));
+          }
+
+          // Execute proc's on_quit hook if quitting
+          if let Some(event) = on_quit_event {
+            self.handle_on_quit_event(loop_action, &event, proc_cwd);
+          }
+
+          if !restart {
+            if self.state.all_procs_down() {
+              if let Some(event) = self.config.on_all_finished.clone() {
+                self.handle_event(loop_action, &event);
               }
             }
-
-            loop_action.render();
           }
+
+          loop_action.render();
         }
         ProcUpdate::Waiting(waiting) => {
           if let Some(proc) = self.state.get_proc_mut(proc_id) {
