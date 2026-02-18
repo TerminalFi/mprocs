@@ -948,11 +948,11 @@ impl App {
           Vec::new(),
           self.get_layout().term_area(),
         );
-        
+
         // Mark as cleanup process and track it
         proc_handle.is_cleanup_proc = true;
         self.state.cleanup_procs_pending += 1;
-        
+
         self.state.procs.push(proc_handle);
 
         loop_action.render();

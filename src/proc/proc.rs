@@ -112,7 +112,8 @@ async fn proc_main_loop(
   // send a Stopped event immediately so cleanup processes can be tracked correctly
   if cfg.autostart && !proc.is_up() {
     if let ProcState::Error(_) = proc.inst {
-      ks.send(KernelCommand::ProcStopped(1));
+      // Use exit code 255 to indicate process spawn failure
+      ks.send(KernelCommand::ProcStopped(255));
     }
   }
 
