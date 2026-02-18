@@ -142,13 +142,12 @@ Example with `on_quit` hook for Docker cleanup:
 procs:
   db:
     shell: "docker compose up"
+    on_quit:
+      c: add-proc
+      cmd: "docker compose down"
+      name: "cleanup"
   server:
     shell: "npm run dev"
-
-on_quit:
-  c: add-proc
-  cmd: "docker compose down"
-  name: "cleanup"
 ```
 
 ### Config
@@ -183,6 +182,10 @@ settings in the _global_ config.
   - **log_dir**: _string|null_ - Directory for process log files. Each process
     logs to `<log_dir>/<name>.log`. Prefix `<CONFIG_DIR>` will be replaced with
     the path of the directory where the config is located.
+  - **on_quit**: _event_ - Command(s) to run when this process stops during mprocs shutdown (when user
+    quits with `q` or `Q`). Useful for cleanup tasks like stopping Docker containers.
+    The command will run in the same working directory as the process.
+    See [Remote control](#remote-control) for available commands.
 - **hide_keymap_window**: _bool_ - Hide the pane at the bottom of the screen
   showing key bindings.
 - **mouse_scroll_speed**: _integer_ - Number of lines to scroll per one mouse
@@ -192,9 +195,6 @@ settings in the _global_ config.
 - **log_dir**: _string|null_ - Default directory for process log files. Each
   process logs to `<log_dir>/<name>.log`. Prefix `<CONFIG_DIR>` will be replaced
   with the path of the directory where the config is located.
-- **on_quit**: _event_ - Command(s) to run when mprocs is shutting down (when user
-  quits with `q` or `Q`). Useful for cleanup tasks like stopping Docker containers.
-  See [Remote control](#remote-control) for available commands.
 - **keymap_procs**: _object_ - Key bindings for process list. See
   [Keymap](#keymap).
 - **keymap_term**: _object_ - Key bindings for terminal window. See

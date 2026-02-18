@@ -162,6 +162,7 @@ async fn run_app() -> anyhow::Result<()> {
           mouse_scroll_speed: settings.mouse_scroll_speed,
           scrollback_len: settings.scrollback_len,
           log_dir: config.log_dir.clone(),
+          on_quit: None,
         })
         .collect::<Vec<_>>();
 
@@ -345,6 +346,7 @@ fn load_procfile_procs(
         mouse_scroll_speed: settings.mouse_scroll_speed,
         scrollback_len: settings.scrollback_len,
         log_dir: None,
+        on_quit: None,
       });
     }
   }

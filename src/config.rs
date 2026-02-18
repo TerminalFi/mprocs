@@ -40,7 +40,6 @@ pub struct Config {
   pub proc_list_width: usize,
   pub proc_list_title: String,
   pub on_all_finished: Option<AppEvent>,
-  pub on_quit: Option<AppEvent>,
   pub log_dir: Option<PathBuf>,
 }
 
@@ -95,12 +94,6 @@ impl Config {
         settings.on_all_finished.clone()
       };
 
-    let on_quit = if let Some(val) = config.get(&Value::from("on_quit")) {
-      Some(serde_yaml::from_value(val.raw().clone())?)
-    } else {
-      settings.on_quit.clone()
-    };
-
     let log_dir = match config.get(&Value::from("log_dir")) {
       Some(val) => match val.raw() {
         Value::Null => None,
@@ -122,7 +115,6 @@ impl Config {
       proc_list_width: settings.proc_list_width,
       proc_list_title,
       on_all_finished,
-      on_quit,
       log_dir,
     };
 
@@ -139,7 +131,6 @@ impl Config {
       proc_list_width: settings.proc_list_width,
       proc_list_title: settings.proc_list_title.clone(),
       on_all_finished: settings.on_all_finished.clone(),
-      on_quit: settings.on_quit.clone(),
       log_dir: settings.log_dir.as_ref().map(PathBuf::from),
     })
   }
@@ -161,6 +152,7 @@ pub struct ProcConfig {
   pub mouse_scroll_speed: usize,
   pub scrollback_len: usize,
   pub log_dir: Option<PathBuf>,
+  pub on_quit: Option<AppEvent>,
 }
 
 impl ProcConfig {
@@ -190,6 +182,7 @@ impl ProcConfig {
         mouse_scroll_speed,
         scrollback_len,
         log_dir: None,
+        on_quit: None,
       })),
       Value::Sequence(_) => {
         let cmd = val.as_array()?;
@@ -210,6 +203,7 @@ impl ProcConfig {
           mouse_scroll_speed,
           scrollback_len,
           log_dir: None,
+          on_quit: None,
         }))
       }
       Value::Mapping(_) => {
@@ -345,6 +339,12 @@ impl ProcConfig {
           Vec::new()
         };
 
+        let on_quit = if let Some(val) = map.get(&Value::from("on_quit")) {
+          Some(serde_yaml::from_value(val.raw().clone())?)
+        } else {
+          None
+        };
+
         Ok(Some(ProcConfig {
           name,
           cmd,
@@ -357,6 +357,7 @@ impl ProcConfig {
           mouse_scroll_speed,
           scrollback_len,
           log_dir,
+          on_quit,
         }))
       }
       Value::Tagged(_) => anyhow::bail!("Yaml tags are not supported"),
@@ -429,10 +430,13 @@ mod tests {
   #[test]
   fn test_on_quit_parsing() {
     let yaml_str = r#"
-on_quit:
-  c: add-proc
-  cmd: "docker compose down"
-  name: "cleanup"
+procs:
+  db:
+    shell: "docker compose up"
+    on_quit:
+      c: add-proc
+      cmd: "docker compose down"
+      name: "cleanup"
 "#;
     let yaml_value: Value = serde_yaml::from_str(yaml_str).unwrap();
     let ctx = ConfigContext {
@@ -442,8 +446,10 @@ on_quit:
     
     let config = Config::from_value(&yaml_value, &ctx, &settings).unwrap();
     
-    assert!(config.on_quit.is_some());
-    match config.on_quit.as_ref().unwrap() {
+    assert_eq!(config.procs.len(), 1);
+    let proc = &config.procs[0];
+    assert!(proc.on_quit.is_some());
+    match proc.on_quit.as_ref().unwrap() {
       AppEvent::AddProc { cmd, name } => {
         assert_eq!(cmd, "docker compose down");
         assert_eq!(name, &Some("cleanup".to_string()));
@@ -455,11 +461,14 @@ on_quit:
   #[test]
   fn test_on_quit_batch_command() {
     let yaml_str = r#"
-on_quit:
-  c: batch
-  cmds:
-    - c: add-proc
-      cmd: "docker compose down"
+procs:
+  db:
+    shell: "docker compose up"
+    on_quit:
+      c: batch
+      cmds:
+        - c: add-proc
+          cmd: "docker compose down"
 "#;
     let yaml_value: Value = serde_yaml::from_str(yaml_str).unwrap();
     let ctx = ConfigContext {
@@ -469,8 +478,10 @@ on_quit:
     
     let config = Config::from_value(&yaml_value, &ctx, &settings).unwrap();
     
-    assert!(config.on_quit.is_some());
-    match config.on_quit.as_ref().unwrap() {
+    assert_eq!(config.procs.len(), 1);
+    let proc = &config.procs[0];
+    assert!(proc.on_quit.is_some());
+    match proc.on_quit.as_ref().unwrap() {
       AppEvent::Batch { cmds } => {
         assert_eq!(cmds.len(), 1);
         match &cmds[0] {
