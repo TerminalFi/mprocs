@@ -87,4 +87,9 @@ impl State {
   pub fn toggle_keymap_window(&mut self) {
     self.hide_keymap_window = !self.hide_keymap_window;
   }
+
+  /// Count how many processes have on_quit hooks defined
+  pub fn count_on_quit_defined(&self) -> usize {
+    self.procs.iter().filter(|p| p.cfg.on_quit.is_some()).count()
+  }
 }

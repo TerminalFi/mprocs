@@ -50,16 +50,38 @@ pub fn render_procs(
       Attrs::default()
     },
   );
+  
+  // Show on_quit status information
+  let mut status_x = r.width + 1;
+  
   if state.quitting {
-    let area = title_area.inner((0, 0, 0, r.width + 1));
-    grid.draw_text(
+    let area = title_area.inner((0, 0, 0, status_x));
+    let quit_text = if state.cleanup_procs_pending > 0 {
+      format!("QUITTING ({} cleanup)", state.cleanup_procs_pending)
+    } else {
+      "QUITTING".to_string()
+    };
+    let r = grid.draw_text(
       area,
-      "QUITTING",
+      &quit_text,
       Attrs::default()
         .fg(Color::BLACK)
         .bg(Color::RED)
         .set_bold(true),
     );
+    status_x += r.width + 1;
+  } else {
+    // Show count of on_quit commands defined
+    let on_quit_count = state.count_on_quit_defined();
+    if on_quit_count > 0 {
+      let area = title_area.inner((0, 0, 0, status_x));
+      let on_quit_text = format!("({} on_quit)", on_quit_count);
+      grid.draw_text(
+        area,
+        &on_quit_text,
+        Attrs::default().fg(Color::BRIGHT_CYAN),
+      );
+    }
   }
 
   let range = state.procs_list.visible_range();
@@ -90,6 +112,18 @@ pub fn render_procs(
     let r = grid.draw_text(row_area, proc.name(), attrs);
     row_area.x += r.width;
     row_area.width = row_area.width.saturating_sub(r.width);
+
+    // Add [cleanup] indicator for on_quit cleanup processes
+    if proc.is_cleanup_proc {
+      let cleanup_tag = " [cleanup]";
+      let r = grid.draw_text(
+        row_area,
+        cleanup_tag,
+        attrs.clone().fg(Color::BRIGHT_YELLOW).set_italic(true),
+      );
+      row_area.x += r.width;
+      row_area.width = row_area.width.saturating_sub(r.width);
+    }
 
     let (status_text, status_attrs) = if proc.is_up() {
       (
