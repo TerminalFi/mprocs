@@ -906,13 +906,13 @@ impl App {
     &mut self,
     loop_action: &mut LoopAction,
     event: &AppEvent,
-    proc_cwd: Option<std::ffi::OsString>,
+    proc_working_dir: Option<std::ffi::OsString>,
   ) {
     let pc = self.pc.clone();
     match event {
       AppEvent::Batch { cmds } => {
         for cmd in cmds {
-          self.handle_on_quit_event(loop_action, cmd, proc_cwd.clone());
+          self.handle_on_quit_event(loop_action, cmd, proc_working_dir.clone());
           if *loop_action == LoopAction::ForceQuit {
             return;
           }
@@ -928,7 +928,9 @@ impl App {
           cmd: CmdConfig::Shell {
             shell: cmd.to_string(),
           },
-          cwd: proc_cwd,
+          // Inherit working directory from the stopped process to ensure
+          // cleanup commands run in the same directory as the original process
+          cwd: proc_working_dir,
           env: None,
           autostart: true,
           autorestart: false,
@@ -1017,7 +1019,7 @@ impl App {
         }
         ProcUpdate::Stopped(exit_code) => {
           let quitting = self.state.quitting;
-          let (restart, on_quit_event, proc_cwd) = if let Some(proc) = self.state.get_proc_mut(proc_id) {
+          let (restart, on_quit_event, proc_working_dir) = if let Some(proc) = self.state.get_proc_mut(proc_id) {
             proc.is_up = false;
             proc.exit_code = Some(exit_code);
 
@@ -1054,9 +1056,9 @@ impl App {
             } else {
               None
             };
-            let proc_cwd = proc.cfg.cwd.clone();
+            let proc_working_dir = proc.cfg.cwd.clone();
             
-            (restart, on_quit_event, proc_cwd)
+            (restart, on_quit_event, proc_working_dir)
           } else {
             (false, None, None)
           };
@@ -1069,7 +1071,7 @@ impl App {
 
           // Execute proc's on_quit hook if quitting
           if let Some(event) = on_quit_event {
-            self.handle_on_quit_event(loop_action, &event, proc_cwd);
+            self.handle_on_quit_event(loop_action, &event, proc_working_dir);
           }
 
           if !restart {
