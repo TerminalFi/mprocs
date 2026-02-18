@@ -52,10 +52,11 @@ pub fn render_procs(
   );
   
   // Show on_quit status information
-  let mut status_x = r.width + 1;
+  const STATUS_INDICATOR_SPACING: u16 = 1;
+  let mut status_column_offset = r.width + STATUS_INDICATOR_SPACING;
   
   if state.quitting {
-    let area = title_area.inner((0, 0, 0, status_x));
+    let area = title_area.inner((0, 0, 0, status_column_offset));
     let quit_text = if state.cleanup_procs_pending > 0 {
       format!("QUITTING ({} cleanup)", state.cleanup_procs_pending)
     } else {
@@ -69,12 +70,12 @@ pub fn render_procs(
         .bg(Color::RED)
         .set_bold(true),
     );
-    status_x += r.width + 1;
+    status_column_offset += r.width + STATUS_INDICATOR_SPACING;
   } else {
     // Show count of on_quit commands defined
     let on_quit_count = state.count_on_quit_defined();
     if on_quit_count > 0 {
-      let area = title_area.inner((0, 0, 0, status_x));
+      let area = title_area.inner((0, 0, 0, status_column_offset));
       let on_quit_text = format!("({} on_quit)", on_quit_count);
       grid.draw_text(
         area,
