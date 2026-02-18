@@ -189,7 +189,7 @@ impl App {
         self.handle_proc_command(&mut loop_action, command);
       }
 
-      if self.state.quitting && self.state.all_procs_down() {
+      if self.state.quitting && self.state.all_procs_down() && self.state.cleanup_procs_pending == 0 {
         break;
       }
 
@@ -941,13 +941,18 @@ impl App {
           log_dir: self.config.log_dir.clone(),
           on_quit: None,
         };
-        let proc_handle = launch_proc(
+        let mut proc_handle = launch_proc(
           &pc,
           proc_config,
           self.pc.alloc_id(),
           Vec::new(),
           self.get_layout().term_area(),
         );
+        
+        // Mark as cleanup process and track it
+        proc_handle.is_cleanup_proc = true;
+        self.state.cleanup_procs_pending += 1;
+        
         self.state.procs.push(proc_handle);
 
         loop_action.render();
@@ -1019,7 +1024,7 @@ impl App {
         }
         ProcUpdate::Stopped(exit_code) => {
           let quitting = self.state.quitting;
-          let (restart, on_quit_event, proc_working_dir) = if let Some(proc) = self.state.get_proc_mut(proc_id) {
+          let (restart, on_quit_event, proc_working_dir, is_cleanup_proc) = if let Some(proc) = self.state.get_proc_mut(proc_id) {
             proc.is_up = false;
             proc.exit_code = Some(exit_code);
 
@@ -1057,11 +1062,17 @@ impl App {
               None
             };
             let proc_working_dir = proc.cfg.cwd.clone();
+            let is_cleanup_proc = proc.is_cleanup_proc;
             
-            (restart, on_quit_event, proc_working_dir)
+            (restart, on_quit_event, proc_working_dir, is_cleanup_proc)
           } else {
-            (false, None, None)
+            (false, None, None, false)
           };
+          
+          // Decrement cleanup counter if this was a cleanup process
+          if is_cleanup_proc && !restart {
+            self.state.cleanup_procs_pending = self.state.cleanup_procs_pending.saturating_sub(1);
+          }
           
           if restart {
             self
@@ -1339,6 +1350,7 @@ pub async fn server_main(
     hide_keymap_window: config.hide_keymap_window,
 
     quitting: false,
+    cleanup_procs_pending: 0,
   };
 
   let app = App {

@@ -30,6 +30,7 @@ pub struct ProcView {
   pub target_state: TargetState,
   pub last_start: Option<Instant>,
   pub changed: bool,
+  pub is_cleanup_proc: bool,
 }
 
 impl ProcView {
@@ -47,6 +48,7 @@ impl ProcView {
       target_state: TargetState::None,
       last_start: None,
       changed: false,
+      is_cleanup_proc: false,
     }
   }
 
