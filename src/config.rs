@@ -428,8 +428,6 @@ mod tests {
 
   #[test]
   fn test_on_quit_parsing() {
-    use std::path::PathBuf;
-    
     let yaml_str = r#"
 on_quit:
   c: add-proc
@@ -456,8 +454,6 @@ on_quit:
 
   #[test]
   fn test_on_quit_batch_command() {
-    use std::path::PathBuf;
-    
     let yaml_str = r#"
 on_quit:
   c: batch
