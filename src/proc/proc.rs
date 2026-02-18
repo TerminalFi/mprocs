@@ -25,6 +25,9 @@ use super::view::ProcView;
 use super::Size;
 use super::StopSignal;
 
+/// Exit code used when a process fails to spawn
+const SPAWN_FAILURE_EXIT_CODE: u32 = 255;
+
 fn sanitize_log_filename(name: &str) -> String {
   let mut out = String::new();
   for ch in name.chars() {
@@ -114,8 +117,7 @@ async fn proc_main_loop(
   // spawn failures for them (which would otherwise hang the quit process).
   if cfg.autostart && !proc.is_up() {
     if let ProcState::Error(_) = proc.inst {
-      // Use exit code 255 to indicate process spawn failure
-      ks.send(KernelCommand::ProcStopped(255));
+      ks.send(KernelCommand::ProcStopped(SPAWN_FAILURE_EXIT_CODE));
     }
   }
 
