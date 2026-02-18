@@ -53,7 +53,7 @@ pub fn render_procs(
   
   // Show on_quit status information
   const STATUS_INDICATOR_SPACING: u16 = 1;
-  let mut status_column_offset = r.width + STATUS_INDICATOR_SPACING;
+  let status_column_offset = r.width + STATUS_INDICATOR_SPACING;
   
   if state.quitting {
     let area = title_area.inner((0, 0, 0, status_column_offset));
@@ -62,7 +62,7 @@ pub fn render_procs(
     } else {
       "QUITTING".to_string()
     };
-    let r = grid.draw_text(
+    grid.draw_text(
       area,
       &quit_text,
       Attrs::default()
@@ -70,7 +70,6 @@ pub fn render_procs(
         .bg(Color::RED)
         .set_bold(true),
     );
-    status_column_offset += r.width + STATUS_INDICATOR_SPACING;
   } else {
     // Show count of on_quit commands defined
     let on_quit_count = state.count_on_quit_defined();
@@ -115,6 +114,7 @@ pub fn render_procs(
     row_area.width = row_area.width.saturating_sub(r.width);
 
     // Add [cleanup] indicator for on_quit cleanup processes
+    // Note: Leading space provides spacing after process name
     if proc.is_cleanup_proc {
       let cleanup_tag = " [cleanup]";
       let r = grid.draw_text(
