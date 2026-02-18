@@ -108,6 +108,14 @@ async fn proc_main_loop(
     tokio::sync::mpsc::unbounded_channel();
   let mut proc = Proc::new(proc_id, cfg, internal_sender, size).await;
 
+  // If autostart is enabled but the process failed to spawn,
+  // send a Stopped event immediately so cleanup processes can be tracked correctly
+  if cfg.autostart && !proc.is_up() {
+    if let ProcState::Error(_) = proc.inst {
+      ks.send(KernelCommand::ProcStopped(1));
+    }
+  }
+
   let mut vt_events_buf = Vec::new();
 
   loop {
