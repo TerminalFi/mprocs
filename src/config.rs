@@ -40,6 +40,7 @@ pub struct Config {
   pub proc_list_width: usize,
   pub proc_list_title: String,
   pub on_all_finished: Option<AppEvent>,
+  pub on_quit: Option<AppEvent>,
   pub log_dir: Option<PathBuf>,
 }
 
@@ -94,6 +95,12 @@ impl Config {
         settings.on_all_finished.clone()
       };
 
+    let on_quit = if let Some(val) = config.get(&Value::from("on_quit")) {
+      Some(serde_yaml::from_value(val.raw().clone())?)
+    } else {
+      settings.on_quit.clone()
+    };
+
     let log_dir = match config.get(&Value::from("log_dir")) {
       Some(val) => match val.raw() {
         Value::Null => None,
@@ -115,6 +122,7 @@ impl Config {
       proc_list_width: settings.proc_list_width,
       proc_list_title,
       on_all_finished,
+      on_quit,
       log_dir,
     };
 
@@ -131,6 +139,7 @@ impl Config {
       proc_list_width: settings.proc_list_width,
       proc_list_title: settings.proc_list_title.clone(),
       on_all_finished: settings.on_all_finished.clone(),
+      on_quit: settings.on_quit.clone(),
       log_dir: settings.log_dir.as_ref().map(PathBuf::from),
     })
   }
@@ -411,4 +420,67 @@ pub fn cmd_from_shell(shell: &str) -> ProcessSpec {
 #[cfg(not(windows))]
 pub fn cmd_from_shell(shell: &str) -> ProcessSpec {
   ProcessSpec::from_argv(vec!["/bin/sh".into(), "-c".into(), shell.into()])
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_on_quit_parsing() {
+    let yaml_str = r#"
+on_quit:
+  c: add-proc
+  cmd: "docker compose down"
+  name: "cleanup"
+"#;
+    let yaml_value: Value = serde_yaml::from_str(yaml_str).unwrap();
+    let ctx = ConfigContext {
+      path: PathBuf::from("/test/path"),
+    };
+    let settings = Settings::default();
+    
+    let config = Config::from_value(&yaml_value, &ctx, &settings).unwrap();
+    
+    assert!(config.on_quit.is_some());
+    match config.on_quit.as_ref().unwrap() {
+      AppEvent::AddProc { cmd, name } => {
+        assert_eq!(cmd, "docker compose down");
+        assert_eq!(name, &Some("cleanup".to_string()));
+      }
+      _ => panic!("Expected AddProc event"),
+    }
+  }
+
+  #[test]
+  fn test_on_quit_batch_command() {
+    let yaml_str = r#"
+on_quit:
+  c: batch
+  cmds:
+    - c: add-proc
+      cmd: "docker compose down"
+"#;
+    let yaml_value: Value = serde_yaml::from_str(yaml_str).unwrap();
+    let ctx = ConfigContext {
+      path: PathBuf::from("/test/path"),
+    };
+    let settings = Settings::default();
+    
+    let config = Config::from_value(&yaml_value, &ctx, &settings).unwrap();
+    
+    assert!(config.on_quit.is_some());
+    match config.on_quit.as_ref().unwrap() {
+      AppEvent::Batch { cmds } => {
+        assert_eq!(cmds.len(), 1);
+        match &cmds[0] {
+          AppEvent::AddProc { cmd, name: _ } => {
+            assert_eq!(cmd, "docker compose down");
+          }
+          _ => panic!("Expected AddProc event in batch"),
+        }
+      }
+      _ => panic!("Expected Batch event"),
+    }
+  }
 }

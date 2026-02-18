@@ -136,6 +136,21 @@ procs:
       NODE_ENV: test
 ```
 
+Example with `on_quit` hook for Docker cleanup:
+
+```yaml
+procs:
+  db:
+    shell: "docker compose up"
+  server:
+    shell: "npm run dev"
+
+on_quit:
+  c: add-proc
+  cmd: "docker compose down"
+  name: "cleanup"
+```
+
 ### Config
 
 [JSON/YAML Configuration Schema](https://json.schemastore.org/mprocs-0.6.4.json)
@@ -177,6 +192,9 @@ settings in the _global_ config.
 - **log_dir**: _string|null_ - Default directory for process log files. Each
   process logs to `<log_dir>/<name>.log`. Prefix `<CONFIG_DIR>` will be replaced
   with the path of the directory where the config is located.
+- **on_quit**: _event_ - Command(s) to run when mprocs is shutting down (when user
+  quits with `q` or `Q`). Useful for cleanup tasks like stopping Docker containers.
+  See [Remote control](#remote-control) for available commands.
 - **keymap_procs**: _object_ - Key bindings for process list. See
   [Keymap](#keymap).
 - **keymap_term**: _object_ - Key bindings for terminal window. See
