@@ -22,6 +22,7 @@ pub struct Settings {
   pub proc_list_width: usize,
   pub proc_list_title: String,
   pub on_all_finished: Option<AppEvent>,
+  pub on_quit: Option<AppEvent>,
   pub log_dir: Option<String>,
 }
 
@@ -37,6 +38,7 @@ impl Default for Settings {
       proc_list_width: 30,
       proc_list_title: "Processes".to_string(),
       on_all_finished: None,
+      on_quit: None,
       log_dir: None,
     };
     settings.add_defaults();
@@ -154,6 +156,10 @@ impl Settings {
     if let Some(on_all_finished) = obj.get(&Value::from("on_all_finished")) {
       self.on_all_finished =
         Some(serde_yaml::from_value(on_all_finished.raw().clone())?);
+    }
+
+    if let Some(on_quit) = obj.get(&Value::from("on_quit")) {
+      self.on_quit = Some(serde_yaml::from_value(on_quit.raw().clone())?);
     }
 
     if let Some(log_dir) = obj.get(&Value::from("log_dir")) {

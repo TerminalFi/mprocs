@@ -190,6 +190,10 @@ impl App {
       }
 
       if self.state.quitting && self.state.all_procs_down() {
+        // Execute on_quit hook before exiting
+        if let Some(event) = self.config.on_quit.clone() {
+          self.handle_event(&mut loop_action, &event);
+        }
         break;
       }
 
