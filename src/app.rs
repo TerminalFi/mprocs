@@ -1071,6 +1071,10 @@ impl App {
           
           // Decrement cleanup counter if this was a cleanup process
           if is_cleanup_proc && !restart {
+            debug_assert!(
+              self.state.cleanup_procs_pending > 0,
+              "cleanup_procs_pending should not be zero when decrementing"
+            );
             self.state.cleanup_procs_pending = self.state.cleanup_procs_pending.saturating_sub(1);
           }
           

@@ -109,7 +109,9 @@ async fn proc_main_loop(
   let mut proc = Proc::new(proc_id, cfg, internal_sender, size).await;
 
   // If autostart is enabled but the process failed to spawn,
-  // send a Stopped event immediately so cleanup processes can be tracked correctly
+  // send a Stopped event immediately so cleanup processes can be tracked correctly.
+  // Cleanup processes always have autostart=true, so this check ensures we handle
+  // spawn failures for them (which would otherwise hang the quit process).
   if cfg.autostart && !proc.is_up() {
     if let ProcState::Error(_) = proc.inst {
       // Use exit code 255 to indicate process spawn failure
