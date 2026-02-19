@@ -558,11 +558,30 @@ impl App {
         loop_action.render();
       }
       AppEvent::Quit => {
+        let was_quitting = self.state.quitting;
         self.state.quitting = true;
         for proc_handle in self.state.procs.iter_mut() {
           proc_handle.target_state = TargetState::Stopped;
           if proc_handle.is_up() {
             pc.send(KernelCommand::ProcCmd(proc_handle.id(), ProcCmd::Stop));
+          }
+        }
+        // If we're just entering the quitting state, run on_quit for procs
+        // that are already down (e.g., one-shot commands like `docker compose up -d`).
+        if !was_quitting {
+          let mut on_quit_events = Vec::new();
+          for proc_handle in self.state.procs.iter() {
+            if !proc_handle.is_up() {
+              if let Some(event) = proc_handle.cfg.on_quit.clone() {
+                on_quit_events.push((event, proc_handle.cfg.cwd.clone()));
+              }
+            }
+          }
+          for (event, proc_working_dir) in on_quit_events {
+            self.handle_on_quit_event(loop_action, &event, proc_working_dir);
+            if *loop_action == LoopAction::ForceQuit {
+              return;
+            }
           }
         }
         loop_action.render();
